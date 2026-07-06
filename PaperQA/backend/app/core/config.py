@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+psycopg://paperqa:paperqa@localhost:5432/paperqa"
 
+    # Auth
+    jwt_secret_key: str = "replace-with-a-secure-random-secret"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
+
 
 @lru_cache
 def get_settings() -> Settings:
