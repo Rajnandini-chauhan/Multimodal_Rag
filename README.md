@@ -865,3 +865,77 @@ Vite
 Axios
 TanStack Query
 Zustand
+
+# Setup Troubleshooting (Windows)
+
+This document records real problems hit while setting up the backend on
+Windows, and the fixes — so future setup is faster and nobody repeats
+the same detours.
+
+## Recommended setup (skip straight to this)
+
+- **Python 3.12** — https://www.python.org/downloads/release/python-3120/
+  (not 3.14+ — see "Wrong Python version" below)
+- **PostgreSQL 18**, native Windows install —
+  https://www.postgresql.org/download/windows/
+- **pgAdmin 4** — installed automatically alongside PostgreSQL, used to
+  create the database/role (no command line required)
+- **No Docker, no WSL** needed for local development. Docker only
+  becomes useful later, for deployment (Milestone 10+).
+
+## Things that went wrong
+
+### Attempt 1: Docker Desktop for Postgres — abandoned
+
+1. Downloaded Docker Desktop from
+   https://www.docker.com/products/docker-desktop/
+2. Accidentally downloaded the **ARM64** build instead of **AMD64/x64**.
+   - Error: *"This app can't run on your PC"*
+   - Fix: check Settings → System → About → "System type" before
+     downloading. Most Windows PCs are x64, not ARM. Re-download the
+     correct AMD64 installer.
+3. After installing the correct x64 build, Docker Desktop required
+   WSL2 (Windows Subsystem for Linux), which wasn't installed.
+   - Error: *"WSL not installed"*
+4. Fixing this meant running `wsl --install` in an admin PowerShell,
+   restarting Windows, and dealing with a separate Ubuntu terminal
+   window — a lot of moving parts for something local dev doesn't
+   actually need.
+5. **Decision:** abandoned Docker/WSL for local dev entirely. It adds
+   real value later for deployment, but not here.
+
+### Attempt 2 (what we actually used): native PostgreSQL install
+
+1. Downloaded PostgreSQL 18 from
+   https://www.postgresql.org/download/windows/ → "Download the
+   installer" → EnterpriseDB Windows x86-64 build.
+2. Ran the `.exe` like a normal installer:
+   - Set a password for the `postgres` superuser (remember it)
+   - Kept default port `5432`
+   - Kept default locale
+3. At the end it launched **Stack Builder** (optional extra downloads)
+   — clicked **Cancel**, not needed for us.
+4. Verified it was running via Windows **Services** app
+   (`postgresql-x64-18` → status **Running**).
+5. Used **pgAdmin 4** (bundled with the installer) to create the
+   `paperqa` login role and `paperqa` database — no command line
+   needed.
+
+### Also hit: wrong Python version
+
+- Started with Python 3.14 (very new at the time). `pydantic-core`
+  (a Rust-based dependency) had no prebuilt wheel for 3.14 yet, so pip
+  tried to compile it from source, which then failed needing a Rust
+  toolchain *and* the MSVC linker (`link.exe`), neither installed.
+- **Fix:** use Python 3.12 instead — much wider prebuilt wheel
+  availability across the ecosystem. This matters even more in later
+  milestones (PyMuPDF, PaddleOCR, sentence-transformers, ChromaDB all
+  lag on brand-new Python versions).
+
+## Quick reference
+
+| Tool | Version | Link |
+|---|---|---|
+| Python | 3.12 | https://www.python.org/downloads/release/python-3120/ |
+| PostgreSQL | 18 (native Windows install) | https://www.postgresql.org/download/windows/ |
+| pgAdmin 4 | bundled with PostgreSQL installer | — |
