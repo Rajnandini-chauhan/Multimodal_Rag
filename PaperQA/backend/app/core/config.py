@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
+    # Paper storage
+    upload_dir: str = "./storage/papers"
+    max_upload_size_mb: int = 25
+
 
 @lru_cache
 def get_settings() -> Settings:

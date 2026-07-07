@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from sqlalchemy import text
 
-from app.api.routes import auth
+from app.api.routes import auth,papers
 from app.core.config import get_settings
 from app.database.session import engine
 
@@ -10,6 +10,7 @@ settings = get_settings()
 app = FastAPI(title=settings.app_name)
 
 app.include_router(auth.router)
+app.include_router(papers.router)
 
 @app.get("/health")
 def health() -> dict:
