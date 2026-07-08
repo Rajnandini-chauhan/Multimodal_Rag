@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     upload_dir: str = "./storage/papers"
     max_upload_size_mb: int = 25
 
+    # AI / RAG
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    gemini_api_key: str = ""
+    llm_model: str = "gemini-2.0-flash"
+    chroma_persist_dir: str = "./storage/chroma"
+
 
 @lru_cache
 def get_settings() -> Settings:
