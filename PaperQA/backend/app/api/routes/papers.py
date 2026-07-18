@@ -29,6 +29,37 @@ def _get_owned_paper(paper_id: uuid.UUID, db: Session, current_user: User) -> Pa
     return paper
 
 
+def _to_paper_out(paper: Paper, job: IngestionJob) -> PaperOut:
+    return PaperOut(
+        id=paper.id,
+        original_filename=paper.original_filename,
+        file_size_bytes=paper.file_size_bytes,
+        page_count=paper.page_count,
+        created_at=paper.created_at,
+        ingestion_job=IngestionJobOut.model_validate(job),
+    )
+
+
+@router.get("", response_model=list[PaperOut])
+def list_papers(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    papers = (
+        db.query(Paper)
+        .filter(Paper.owner_id == current_user.id)
+        .order_by(Paper.created_at.desc())
+        .all()
+    )
+
+    results = []
+    for paper in papers:
+        job = db.query(IngestionJob).filter(IngestionJob.paper_id == paper.id).first()
+        if job is not None:
+            results.append(_to_paper_out(paper, job))
+    return results
+
+
 @router.post("/upload", response_model=PaperOut, status_code=status.HTTP_201_CREATED)
 async def upload_paper(
     file: UploadFile,
@@ -51,7 +82,7 @@ async def upload_paper(
         file_size_bytes=len(contents),
     )
     db.add(paper)
-    db.flush()
+    db.flush()  # assigns paper.id without committing yet
 
     job = IngestionJob(paper_id=paper.id, status=IngestionStatus.PENDING)
     db.add(job)
