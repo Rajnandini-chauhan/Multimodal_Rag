@@ -5,10 +5,10 @@ from pydantic import BaseModel
 
 from app.models.ingestion_job import IngestionStatus
 
-
 class IngestionJobOut(BaseModel):
     id: uuid.UUID
     status: IngestionStatus
+    progress_percent: int
     error_message: str | None = None
 
     class Config:

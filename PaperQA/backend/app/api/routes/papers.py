@@ -10,10 +10,8 @@ from app.models.paper import Paper
 from app.models.user import User
 from app.schemas.paper import IngestionJobOut, PaperOut
 from app.schemas.qa import AskRequest, AskResponse
-from app.services.chunking import chunk_pages
-from app.services.indexing import index_chunks
-from app.services.pdf_extraction import extract_pages, get_page_count
 from app.services.qa import generate_answer, retrieve_relevant_chunks
+from app.services.tasks import run_ingestion
 from app.storage.file_storage import InvalidPDFError, save_pdf, validate_pdf
 
 router = APIRouter(prefix="/api/papers", tags=["papers"])
@@ -72,7 +70,7 @@ async def upload_paper(
     )
 
 
-@router.post("/{paper_id}/index", response_model=PaperOut)
+@router.post("/{paper_id}/index", response_model=PaperOut, status_code=status.HTTP_202_ACCEPTED)
 def index_paper(
     paper_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -87,22 +85,15 @@ def index_paper(
             detail="No ingestion job found for this paper",
         )
 
-    job.status = IngestionStatus.PROCESSING
+    job.status = IngestionStatus.PENDING
+    job.progress_percent = 0
+    job.error_message = None
     db.commit()
 
-    try:
-        pages = extract_pages(paper.storage_path)
-        chunks = chunk_pages(pages)
-        index_chunks(str(paper.id), chunks)
+    # Enqueue the work and return immediately -- the API is not blocked
+    # waiting for extraction/embedding to finish.
+    run_ingestion.delay(str(paper.id))
 
-        paper.page_count = get_page_count(paper.storage_path)
-        job.status = IngestionStatus.COMPLETED
-        job.error_message = None
-    except Exception as exc:
-        job.status = IngestionStatus.FAILED
-        job.error_message = str(exc)
-
-    db.commit()
     db.refresh(paper)
     db.refresh(job)
 
@@ -114,6 +105,23 @@ def index_paper(
         created_at=paper.created_at,
         ingestion_job=IngestionJobOut.model_validate(job),
     )
+
+
+@router.get("/{paper_id}/status", response_model=IngestionJobOut)
+def get_ingestion_status(
+    paper_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    paper = _get_owned_paper(paper_id, db, current_user)
+    job = db.query(IngestionJob).filter(IngestionJob.paper_id == paper.id).first()
+
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No ingestion job found"
+        )
+
+    return IngestionJobOut.model_validate(job)
 
 
 @router.post("/{paper_id}/ask", response_model=AskResponse)

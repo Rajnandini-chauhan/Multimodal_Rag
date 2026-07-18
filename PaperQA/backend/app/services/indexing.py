@@ -11,6 +11,10 @@ _embedding_model: SentenceTransformer | None = None
 _chroma_client: chromadb.ClientAPI | None = None
 
 
+
+
+
+
 def get_embedding_model() -> SentenceTransformer:
     global _embedding_model
     if _embedding_model is None:
@@ -42,6 +46,14 @@ def index_chunks(paper_id: str, chunks: list[Chunk]) -> int:
 
     model = get_embedding_model()
     client = get_chroma_client()
+
+    # Drop any existing collection first -- re-indexing should fully replace
+    # the paper's chunks, not accumulate duplicates or leave stale chunks
+    # behind if the chunking logic changed since the last index.
+    try:
+        client.delete_collection(name=get_collection_name(paper_id))
+    except Exception:
+        pass  # collection may not exist yet on first index -- fine
 
     collection = client.get_or_create_collection(name=get_collection_name(paper_id))
 

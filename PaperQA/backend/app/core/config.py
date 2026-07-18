@@ -32,8 +32,11 @@ class Settings(BaseSettings):
     # AI / RAG
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     gemini_api_key: str = ""
-    llm_model: str = "gemini-2.0-flash"
+    llm_model: str = "gemini-2.5-flash"
     chroma_persist_dir: str = "./storage/chroma"
+    
+# Async task queue
+    redis_url: str = "redis://localhost:6379/0"
 
 
 @lru_cache
