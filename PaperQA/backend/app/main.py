@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api.routes import auth, papers
+from app.api.routes import auth, content, papers
 from app.core.config import get_settings
 from app.database.session import engine
 
@@ -20,8 +20,9 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(papers.router)
+app.include_router(content.router)
 
-# ... /health endpoint stays exactly as before ...
+
 @app.get("/health")
 def health() -> dict:
     """Liveness + readiness check. Confirms the API is running, settings are

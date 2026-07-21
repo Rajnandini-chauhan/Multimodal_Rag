@@ -2,10 +2,12 @@ import uuid
 
 from app.celery_app import celery_app
 from app.database.session import SessionLocal
+from app.models.content_block import ContentBlock
 from app.models.ingestion_job import IngestionJob, IngestionStatus
 from app.models.paper import Paper
 from app.models.user import User  # noqa: F401 -- ensures SQLAlchemy can resolve Paper.owner relationship
 from app.services.chunking import chunk_pages
+from app.services.extraction.pipeline import extract_all_content_blocks
 from app.services.indexing import index_chunks
 from app.services.pdf_extraction import extract_pages, get_page_count
 
@@ -17,7 +19,9 @@ from app.services.pdf_extraction import extract_pages, get_page_count
     default_retry_delay=10,  # seconds
 )
 def run_ingestion(self, paper_id: str) -> None:
-    """Background task: extract, chunk, embed, and index a paper's PDF.
+    """Background task: extract, chunk, embed, and index a paper's PDF,
+    plus run the Milestone 7 multimodal extraction pipeline (figures,
+    tables, equations, captions, and their relationships).
 
     Updates IngestionJob.progress_percent as it goes, so clients can poll
     for status. Retries transient failures up to 3 times before marking
@@ -37,14 +41,35 @@ def run_ingestion(self, paper_id: str) -> None:
         db.commit()
 
         pages = extract_pages(paper.storage_path)
-        job.progress_percent = 30
+        job.progress_percent = 20
         db.commit()
 
         chunks = chunk_pages(pages)
-        job.progress_percent = 50
+        job.progress_percent = 35
         db.commit()
 
         index_chunks(str(paper.id), chunks)
+        job.progress_percent = 55
+        db.commit()
+
+        # Milestone 7: figures, tables, equations, captions, and linking.
+        # Any previous extraction for this paper is cleared first, so
+        # re-indexing fully replaces rather than accumulates blocks.
+        db.query(ContentBlock).filter(ContentBlock.paper_id == paper.id).delete()
+
+        extracted_blocks = extract_all_content_blocks(paper.storage_path, paper.id)
+        for block in extracted_blocks:
+            db.add(
+                ContentBlock(
+                    id=block.id,
+                    paper_id=paper.id,
+                    content_type=block.content_type,
+                    page_number=block.page_number,
+                    content=block.content,
+                    bounding_box=block.bounding_box,
+                    extra_data=block.extra_data,
+                )
+            )
         job.progress_percent = 90
         db.commit()
 
