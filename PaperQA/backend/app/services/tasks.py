@@ -9,6 +9,7 @@ from app.models.user import User  # noqa: F401 -- ensures SQLAlchemy can resolve
 from app.services.chunking import chunk_pages
 from app.services.extraction.pipeline import extract_all_content_blocks
 from app.services.indexing import index_chunks
+from app.services.multimodal_indexing import index_multimodal_blocks
 from app.services.pdf_extraction import extract_pages, get_page_count
 
 
@@ -20,8 +21,9 @@ from app.services.pdf_extraction import extract_pages, get_page_count
 )
 def run_ingestion(self, paper_id: str) -> None:
     """Background task: extract, chunk, embed, and index a paper's PDF,
-    plus run the Milestone 7 multimodal extraction pipeline (figures,
-    tables, equations, captions, and their relationships).
+    run the Milestone 7 multimodal extraction pipeline (figures, tables,
+    equations, captions, and their relationships), and generate + embed
+    VLM descriptions for figures/tables (Milestone 8).
 
     Updates IngestionJob.progress_percent as it goes, so clients can poll
     for status. Retries transient failures up to 3 times before marking
@@ -41,35 +43,41 @@ def run_ingestion(self, paper_id: str) -> None:
         db.commit()
 
         pages = extract_pages(paper.storage_path)
-        job.progress_percent = 20
+        job.progress_percent = 15
         db.commit()
 
         chunks = chunk_pages(pages)
-        job.progress_percent = 35
+        job.progress_percent = 25
         db.commit()
 
         index_chunks(str(paper.id), chunks)
-        job.progress_percent = 55
+        job.progress_percent = 40
         db.commit()
 
         # Milestone 7: figures, tables, equations, captions, and linking.
-        # Any previous extraction for this paper is cleared first, so
-        # re-indexing fully replaces rather than accumulates blocks.
         db.query(ContentBlock).filter(ContentBlock.paper_id == paper.id).delete()
 
         extracted_blocks = extract_all_content_blocks(paper.storage_path, paper.id)
+        db_blocks = []
         for block in extracted_blocks:
-            db.add(
-                ContentBlock(
-                    id=block.id,
-                    paper_id=paper.id,
-                    content_type=block.content_type,
-                    page_number=block.page_number,
-                    content=block.content,
-                    bounding_box=block.bounding_box,
-                    extra_data=block.extra_data,
-                )
+            db_block = ContentBlock(
+                id=block.id,
+                paper_id=paper.id,
+                content_type=block.content_type,
+                page_number=block.page_number,
+                content=block.content,
+                bounding_box=block.bounding_box,
+                extra_data=block.extra_data,
             )
+            db.add(db_block)
+            db_blocks.append(db_block)
+        job.progress_percent = 65
+        db.commit()
+
+        # Milestone 8: VLM descriptions for figures/tables, embedded for
+        # semantic retrieval. Runs after commit so db_blocks have their
+        # rows persisted and can be safely updated with descriptions.
+        index_multimodal_blocks(db, str(paper.id), db_blocks)
         job.progress_percent = 90
         db.commit()
 
@@ -88,7 +96,6 @@ def run_ingestion(self, paper_id: str) -> None:
         )
 
         try:
-            # Retry transient failures (e.g. a momentary DB or model hiccup)
             raise self.retry(exc=exc)
         except self.MaxRetriesExceededError:
             if job is not None:

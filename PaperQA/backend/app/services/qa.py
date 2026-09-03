@@ -1,86 +1,139 @@
-from dataclasses import dataclass
-
-import google.generativeai as genai
+from dataclasses import dataclass, field
 
 from app.core.config import get_settings
-from app.services.indexing import get_chroma_client, get_collection_name, get_embedding_model
+from app.services.indexing import (
+    embed_texts,
+    get_chroma_client,
+    get_collection_name,
+    get_multimodal_collection_name,
+)
+from app.services.nvidia_client import get_nvidia_client
 
 settings = get_settings()
 
-_gemini_configured = False
-
 
 @dataclass
-class RetrievedChunk:
-    text: str
+class RetrievedItem:
+    text: str  # chunk text, or a figure/table's generated description
     page_number: int
+    content_type: str = "text"  # "text" | "figure" | "table"
+    figure_number: int | None = None
+    table_number: int | None = None
+    distance: float = 0.0
 
 
 @dataclass
 class AnswerResult:
     answer: str
-    sources: list[int]  # unique page numbers cited
+    sources: list[int] = field(default_factory=list)  # page numbers
+    figures: list[int] = field(default_factory=list)  # figure numbers cited
+    tables: list[int] = field(default_factory=list)  # table numbers cited
 
 
-def _ensure_gemini_configured() -> None:
-    global _gemini_configured
-    if not _gemini_configured:
-        genai.configure(api_key=settings.gemini_api_key)
-        _gemini_configured = True
-
-
-def retrieve_relevant_chunks(
-    paper_id: str, question: str, top_k: int = 5
-) -> list[RetrievedChunk]:
-    """Dense retrieval: embed the question, find the most similar chunks
-    from this paper's ChromaDB collection."""
-    model = get_embedding_model()
+def retrieve_relevant_content(
+    paper_id: str, question: str, top_k_text: int = 5, top_k_multimodal: int = 3
+) -> list[RetrievedItem]:
+    """Dense retrieval across BOTH the plain-text chunk collection and the
+    figure/table description collection, then merge and rerank by distance
+    (lower = more similar) so the most relevant items win regardless of
+    which modality they came from.
+    """
     client = get_chroma_client()
+    # NIM's asymmetric embeddings: "query" at retrieval, "passage" at index.
+    query_embedding = embed_texts([question], input_type="query")
 
-    collection = client.get_or_create_collection(name=get_collection_name(paper_id))
+    items: list[RetrievedItem] = []
 
-    query_embedding = model.encode([question]).tolist()
-    results = collection.query(query_embeddings=query_embedding, n_results=top_k)
-
-    documents = results["documents"][0] if results["documents"] else []
-    metadatas = results["metadatas"][0] if results["metadatas"] else []
-
-    return [
-        RetrievedChunk(text=doc, page_number=meta["page_number"])
-        for doc, meta in zip(documents, metadatas)
-    ]
-
-
-def generate_answer(question: str, chunks: list[RetrievedChunk]) -> AnswerResult:
-    """Generate a grounded answer from retrieved chunks using Gemini,
-    instructed to only use the provided context and cite page numbers."""
-    if not chunks:
-        return AnswerResult(
-            answer="I couldn't find relevant content in this paper to answer that question.",
-            sources=[],
+    text_collection = client.get_or_create_collection(name=get_collection_name(paper_id))
+    text_results = text_collection.query(
+        query_embeddings=query_embedding, n_results=top_k_text
+    )
+    for doc, meta, dist in zip(
+        text_results["documents"][0] if text_results["documents"] else [],
+        text_results["metadatas"][0] if text_results["metadatas"] else [],
+        text_results["distances"][0] if text_results["distances"] else [],
+    ):
+        items.append(
+            RetrievedItem(
+                text=doc, page_number=meta["page_number"], content_type="text", distance=dist
+            )
         )
 
-    _ensure_gemini_configured()
-
-    context_blocks = "\n\n".join(
-        f"[Page {c.page_number}]\n{c.text}" for c in chunks
+    mm_collection = client.get_or_create_collection(
+        name=get_multimodal_collection_name(paper_id)
     )
+    if mm_collection.count() > 0:
+        mm_results = mm_collection.query(
+            query_embeddings=query_embedding,
+            n_results=min(top_k_multimodal, mm_collection.count()),
+        )
+        for doc, meta, dist in zip(
+            mm_results["documents"][0] if mm_results["documents"] else [],
+            mm_results["metadatas"][0] if mm_results["metadatas"] else [],
+            mm_results["distances"][0] if mm_results["distances"] else [],
+        ):
+            items.append(
+                RetrievedItem(
+                    text=doc,
+                    page_number=meta["page_number"],
+                    content_type=meta.get("content_type", "figure"),
+                    figure_number=meta.get("figure_number"),
+                    table_number=meta.get("table_number"),
+                    distance=dist,
+                )
+            )
+
+    items.sort(key=lambda i: i.distance)
+    return items
+
+
+def _format_context_block(item: RetrievedItem) -> str:
+    if item.content_type == "figure":
+        label = f"Figure {item.figure_number}" if item.figure_number else "Figure"
+        return f"[Page {item.page_number}, {label} -- visual description]\n{item.text}"
+    if item.content_type == "table":
+        label = f"Table {item.table_number}" if item.table_number else "Table"
+        return f"[Page {item.page_number}, {label} -- content summary]\n{item.text}"
+    return f"[Page {item.page_number}, Text]\n{item.text}"
+
+
+def generate_answer(question: str, items: list[RetrievedItem]) -> AnswerResult:
+    """Generate a grounded answer from retrieved text/figure/table content,
+    instructed to cite pages AND figure/table numbers when relevant.
+    """
+    if not items:
+        return AnswerResult(
+            answer="I couldn't find relevant content in this paper to answer that question."
+        )
+
+    context_blocks = "\n\n".join(_format_context_block(i) for i in items)
 
     prompt = (
         "You are answering a question using only the excerpts below from a "
-        "research paper. Each excerpt is labeled with its page number.\n\n"
+        "document. Excerpts may be plain text, or descriptions of figures "
+        "and tables (since the original images/tables have already been "
+        "interpreted for you). Each excerpt is labeled with its page number "
+        "and, if applicable, its figure or table number.\n\n"
         "Rules:\n"
         "- Only use information from the excerpts. Do not use outside knowledge.\n"
         "- If the excerpts don't contain the answer, say so clearly.\n"
-        "- Cite the page number(s) your answer comes from, like (page 3).\n\n"
+        "- If your answer relies on a figure or table, explicitly say so "
+        "(e.g. 'as shown in Figure 3...') in addition to citing the page.\n"
+        "- Cite page numbers like (page 3).\n\n"
         f"Excerpts:\n{context_blocks}\n\n"
         f"Question: {question}\n\n"
         "Answer:"
     )
 
-    model = genai.GenerativeModel(settings.llm_model)
-    response = model.generate_content(prompt)
+    client = get_nvidia_client()
+    response = client.chat.completions.create(
+        model=settings.llm_model,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    answer_text = response.choices[0].message.content.strip()
 
-    sources = sorted({c.page_number for c in chunks})
+    sources = sorted({i.page_number for i in items})
+    figures = sorted({i.figure_number for i in items if i.figure_number is not None})
+    tables = sorted({i.table_number for i in items if i.table_number is not None})
 
-    return AnswerResult(answer=response.text.strip(), sources=sources)
+    return AnswerResult(answer=answer_text, sources=sources, figures=figures, tables=tables)

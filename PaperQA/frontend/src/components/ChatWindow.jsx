@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { paperApi } from "../services/api";
 import SourceViewer from "./SourceViewer";
 
@@ -6,11 +6,19 @@ export default function ChatWindow({ paperId, disabled }) {
   const [messages, setMessages] = useState([]);
   const [question, setQuestion] = useState("");
   const [asking, setAsking] = useState(false);
+  const scrollRef = useRef(null);
+
+  // Auto-scroll to the latest message so users don't have to chase the conversation.
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, asking]);
 
   async function handleSubmit(e) {
     e.preventDefault();
     const trimmed = question.trim();
-    if (!trimmed || asking) return;
+    if (!trimmed || asking || disabled) return;
 
     setMessages((prev) => [...prev, { role: "user", text: trimmed }]);
     setQuestion("");
@@ -23,7 +31,9 @@ export default function ChatWindow({ paperId, disabled }) {
         {
           role: "assistant",
           text: res.data.answer,
-          sources: res.data.sources,
+          sources: res.data.sources || [],
+          figures: res.data.figures || [],
+          tables: res.data.tables || [],
         },
       ]);
     } catch (err) {
@@ -44,7 +54,7 @@ export default function ChatWindow({ paperId, disabled }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto space-y-4 p-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 p-4">
         {messages.length === 0 && (
           <p className="text-sm text-pencil font-mono">
             {disabled
@@ -70,7 +80,11 @@ export default function ChatWindow({ paperId, disabled }) {
               <p className="whitespace-pre-wrap">{msg.text}</p>
             </div>
             {msg.role === "assistant" && !msg.error && (
-              <SourceViewer sources={msg.sources} />
+              <SourceViewer
+                sources={msg.sources}
+                figures={msg.figures}
+                tables={msg.tables}
+              />
             )}
           </div>
         ))}
@@ -89,9 +103,7 @@ export default function ChatWindow({ paperId, disabled }) {
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           disabled={disabled || asking}
-          placeholder={
-            disabled ? "indexing in progress..." : "ask a question..."
-          }
+          placeholder={disabled ? "indexing in progress..." : "ask a question..."}
           className="flex-1 border border-pencil-light rounded-sm px-3 py-2 text-sm bg-paper focus:outline-none focus:ring-2 focus:ring-indigo disabled:opacity-50"
         />
         <button

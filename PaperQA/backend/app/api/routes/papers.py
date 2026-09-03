@@ -1,16 +1,18 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.config import get_settings
 from app.database.session import get_db
 from app.models.ingestion_job import IngestionJob, IngestionStatus
 from app.models.paper import Paper
 from app.models.user import User
 from app.schemas.paper import IngestionJobOut, PaperOut
 from app.schemas.qa import AskRequest, AskResponse
-from app.services.qa import generate_answer, retrieve_relevant_chunks
+from app.services.qa import generate_answer, retrieve_relevant_content
 from app.services.tasks import run_ingestion
 from app.storage.file_storage import InvalidPDFError, save_pdf, validate_pdf
 
@@ -91,6 +93,11 @@ async def upload_paper(
     db.refresh(paper)
     db.refresh(job)
 
+    # Enqueue ingestion immediately so the paper starts processing without
+    # the client having to make a second call. The /index endpoint still
+    # works for explicit re-indexing and handles the stale-job recovery case.
+    run_ingestion.delay(str(paper.id))
+
     return PaperOut(
         id=paper.id,
         original_filename=paper.original_filename,
@@ -114,6 +121,27 @@ def index_paper(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No ingestion job found for this paper",
+        )
+
+    # Allow re-queuing when the job is non-terminal AND looks orphaned
+    # (its updated_at hasn't moved for `stale_job_after_seconds`). This is
+    # what recovers the common case of: worker died mid-startup, message
+    # never made it onto the queue, or the API's broker URL was mis-configured
+    # so delay() returned success but Redis never received the task.
+    settings = get_settings()
+    stale_cutoff = datetime.now(timezone.utc) - timedelta(
+        seconds=settings.stale_job_after_seconds
+    )
+    last_touched = job.updated_at or job.created_at
+    is_stale = last_touched is not None and last_touched < stale_cutoff
+
+    if (
+        job.status in (IngestionStatus.PENDING, IngestionStatus.PROCESSING)
+        and not is_stale
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Indexing is already in progress for this paper",
         )
 
     job.status = IngestionStatus.PENDING
@@ -171,7 +199,12 @@ def ask_paper(
             detail="This paper has not finished indexing yet",
         )
 
-    chunks = retrieve_relevant_chunks(str(paper.id), payload.question)
-    result = generate_answer(payload.question, chunks)
+    items = retrieve_relevant_content(str(paper.id), payload.question)
+    result = generate_answer(payload.question, items)
 
-    return AskResponse(answer=result.answer, sources=result.sources)
+    return AskResponse(
+        answer=result.answer,
+        sources=result.sources,
+        figures=result.figures,
+        tables=result.tables,
+    )

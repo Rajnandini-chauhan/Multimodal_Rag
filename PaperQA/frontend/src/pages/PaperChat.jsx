@@ -10,6 +10,7 @@ export default function PaperChat() {
   const { paperId } = useParams();
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [reindexError, setReindexError] = useState("");
   const intervalRef = useRef(null);
 
   useEffect(() => {
@@ -23,10 +24,7 @@ export default function PaperChat() {
     try {
       const res = await paperApi.getStatus(paperId);
       setJob(res.data);
-      if (
-        res.data.status === "completed" ||
-        res.data.status === "failed"
-      ) {
+      if (res.data.status === "completed" || res.data.status === "failed") {
         clearInterval(intervalRef.current);
       }
     } finally {
@@ -34,7 +32,22 @@ export default function PaperChat() {
     }
   }
 
+  async function handleReindex() {
+    setReindexError("");
+    try {
+      await paperApi.startIndexing(paperId);
+      // Restart polling so the user sees progress.
+      intervalRef.current = setInterval(fetchStatus, POLL_INTERVAL_MS);
+      await fetchStatus();
+    } catch (err) {
+      setReindexError(
+        err.response?.data?.detail || "Could not restart indexing."
+      );
+    }
+  }
+
   const isReady = job?.status === "completed";
+  const isFailed = job?.status === "failed";
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -58,6 +71,19 @@ export default function PaperChat() {
                   indexing this paper
                 </p>
                 <IngestionProgress job={job} />
+                {isFailed && (
+                  <div className="mt-3">
+                    <button
+                      onClick={handleReindex}
+                      className="text-xs font-mono text-indigo hover:underline"
+                    >
+                      try re-indexing this paper
+                    </button>
+                    {reindexError && (
+                      <p className="mt-1 text-xs text-danger">{reindexError}</p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

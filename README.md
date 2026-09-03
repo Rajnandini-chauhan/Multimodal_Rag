@@ -166,8 +166,8 @@ flowchart TD
 | Async jobs | Celery + Redis | Long-running extraction and indexing |
 | PDF parsing | PyMuPDF + pdfplumber | Text, figures, coordinates, and tables |
 | Vector database | ChromaDB | Embeddings and metadata-filtered retrieval |
-| Embeddings | Configurable provider | Text and query representations |
-| LLM / VLM | Configurable provider | Text and image-grounded answer generation |
+| Embeddings | NVIDIA NIM (`nvidia/nv-embed-qa`) | Asymmetric passage/query embeddings via `/v1/embeddings` |
+| LLM / VLM | NVIDIA NIM (Llama 3.1 70B + Llama 3.2 11B Vision) | Text Q&A, table summaries, and image-grounded figure descriptions via one OpenAI-compatible client |
 | Visualization | Pandas + Plotly | Charts from structured table data |
 | Frontend | React + Vite | Login, dashboard, upload, progress, and chat |
 | HTTP client | Axios | Frontend-to-backend requests |
@@ -724,11 +724,13 @@ REDIS_URL=redis://redis:6379/0
 CELERY_BROKER_URL=redis://redis:6379/0
 CELERY_RESULT_BACKEND=redis://redis:6379/1
 
-AI_PROVIDER=openai
-LLM_MODEL=
-VISION_MODEL=
-EMBEDDING_MODEL=text-embedding-3-small
-OPENAI_API_KEY=
+# NVIDIA NIM -- single provider for text + vision + embeddings.
+# Get a free key at https://build.nvidia.com (valid 6 months).
+NVIDIA_API_KEY=
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+LLM_MODEL=meta/llama-3.1-70b-instruct
+VISION_MODEL=meta/llama-3.2-11b-vision-instruct
+EMBEDDING_MODEL=nvidia/nv-embedqa-e5-v5
 
 PAPER_STORAGE_DIR=storage/papers
 FIGURE_STORAGE_DIR=storage/figures
@@ -737,6 +739,8 @@ CHROMA_PERSIST_DIR=storage/chroma
 
 VITE_API_URL=http://localhost:8000
 ```
+
+> **Heads up:** the embedding model changed from `sentence-transformers/all-MiniLM-L6-v2` to `meta/muse-glimmer-30b`, so any paper indexed under the old embeddings has stale vectors in ChromaDB. Re-trigger indexing on each paper (POST `/api/papers/{id}/index`) to rebuild its collection under the new embedding space.
 
 Real secrets must never be committed. Only `.env.example` belongs in version control.
 
@@ -931,6 +935,54 @@ the same detours.
   availability across the ecosystem. This matters even more in later
   milestones (PyMuPDF, PaddleOCR, sentence-transformers, ChromaDB all
   lag on brand-new Python versions).
+
+### Paper stuck in PENDING forever, `/index` returns 409
+
+**Symptom:** Upload a PDF → `GET /api/papers` shows the new paper with
+`status: pending, progress_percent: 0` indefinitely. Hitting
+`POST /api/papers/{id}/index` returns
+`409 Conflict — Indexing is already in progress for this paper`.
+
+**Cause 1 (most common): the Celery worker isn't running.** The API
+calls `run_ingestion.delay(...)` which puts a message on the Redis
+queue, but nothing consumes it until a worker is started.
+
+  ```powershell
+  # In a second terminal, with the .venv activated:
+  cd PaperQA\backend
+  celery -A app.celery_app worker --loglevel=info --pool=solo
+  ```
+
+  You should see the worker boot to `celery@... ready.` and then
+  process any tasks that were queued while it was offline.
+
+**Cause 2: `REDIS_URL` is malformed in `backend/.env`.** A truncated
+value like `redis://localhost:` (missing the port and `/0` DB number)
+makes Celery's broker connection silently fail — `delay()` returns
+success to the API but Redis never receives the task. Verify with:
+
+  ```powershell
+  python -c "import redis; print(redis.from_url('redis://localhost:6379/0').ping())"
+  ```
+
+  And confirm both `backend\.env` and your shell have the same
+  `REDIS_URL=redis://localhost:6379/0`.
+
+**Cause 3: the job is genuinely orphaned.** If the worker died
+mid-startup or the broker was mis-configured at the time of upload,
+the `IngestionJob` row is stuck in `PENDING` and the `/index`
+endpoint will keep returning 409. The route now detects this
+(`stale_job_after_seconds`, default 5 minutes) and lets you
+re-queue. If it's been less than 5 minutes since upload, either wait
+or force-unstick via SQL:
+
+  ```sql
+  UPDATE ingestion_jobs
+  SET status = 'failed', error_message = 'manually reset'
+  WHERE paper_id = '<your paper uuid>';
+  ```
+
+  Then `POST /api/papers/{id}/index` will accept a new run.
 
 ## Quick reference
 

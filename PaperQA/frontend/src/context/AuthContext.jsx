@@ -23,6 +23,8 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
+  
+
   async function login(email, password) {
     const res = await authApi.login(email, password);
     localStorage.setItem("paperqa_token", res.data.access_token);
