@@ -49,4 +49,17 @@ export const paperApi = {
     api.post(`/api/papers/${paperId}/ask`, { question }),
 };
 
+export const chatApi = {
+  createSession: (paperId, title = "New Chat") =>
+    api.post(`/api/papers/${paperId}/sessions`, { title }),
+  listSessions: (paperId) =>
+    api.get(`/api/papers/${paperId}/sessions`),
+  getSessionMessages: (sessionId) =>
+    api.get(`/api/sessions/${sessionId}/messages`),
+  sendMessage: (sessionId, content) =>
+    api.post(`/api/sessions/${sessionId}/messages`, { content }),
+  deleteSession: (sessionId) =>
+    api.delete(`/api/sessions/${sessionId}`),
+};
+
 export default api;

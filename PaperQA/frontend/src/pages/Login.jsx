@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import ThemeToggle from "../components/ThemeToggle";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -27,10 +28,13 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm">
+    <div className="flex min-h-screen flex-col justify-between px-4 transition-colors duration-200">
+      <div className="p-4 flex justify-end">
+        <ThemeToggle />
+      </div>
+      <div className="w-full max-w-sm mx-auto mb-auto">
         <div className="mb-8 text-center">
-          <h1 className="font-display text-3xl font-semibold text-ink">
+          <h1 className="font-display text-3xl font-semibold text-ink tracking-tight">
             PaperQA
           </h1>
           <p className="mt-1 font-mono text-xs text-pencil">
@@ -40,7 +44,7 @@ export default function Login() {
 
         <form
           onSubmit={handleSubmit}
-          className="border border-pencil-light bg-white/60 rounded-sm p-6 space-y-4"
+          className="border border-pencil-light bg-paper-dim/40 backdrop-blur-md rounded-md p-6 space-y-4 shadow-sm"
         >
           {error && (
             <p className="text-sm text-danger border-l-2 border-danger pl-2">
@@ -57,7 +61,7 @@ export default function Login() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-pencil-light rounded-sm px-3 py-2 text-sm bg-paper focus:outline-none focus:ring-2 focus:ring-indigo"
+              className="w-full border border-pencil-light rounded-sm px-3 py-2 text-sm bg-paper text-ink focus:outline-none focus:ring-2 focus:ring-indigo"
             />
           </div>
 
@@ -70,7 +74,7 @@ export default function Login() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-pencil-light rounded-sm px-3 py-2 text-sm bg-paper focus:outline-none focus:ring-2 focus:ring-indigo"
+              className="w-full border border-pencil-light rounded-sm px-3 py-2 text-sm bg-paper text-ink focus:outline-none focus:ring-2 focus:ring-indigo"
             />
           </div>
 
@@ -90,6 +94,7 @@ export default function Login() {
           </Link>
         </p>
       </div>
+      <div />
     </div>
   );
 }

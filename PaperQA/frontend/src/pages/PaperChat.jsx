@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { paperApi } from "../services/api";
 import IngestionProgress from "../components/IngestionProgress";
 import ChatWindow from "../components/ChatWindow";
+import ThemeToggle from "../components/ThemeToggle";
 
 const POLL_INTERVAL_MS = 2000;
 
@@ -36,7 +37,6 @@ export default function PaperChat() {
     setReindexError("");
     try {
       await paperApi.startIndexing(paperId);
-      // Restart polling so the user sees progress.
       intervalRef.current = setInterval(fetchStatus, POLL_INTERVAL_MS);
       await fetchStatus();
     } catch (err) {
@@ -50,17 +50,18 @@ export default function PaperChat() {
   const isFailed = job?.status === "failed";
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b border-pencil-light px-6 py-4 flex items-center justify-between">
+    <div className="min-h-screen flex flex-col transition-colors duration-200">
+      <header className="border-b border-pencil-light px-6 py-4 flex items-center justify-between backdrop-blur-md bg-paper/80 sticky top-0 z-10">
         <Link
           to="/"
-          className="font-display text-xl font-semibold hover:text-indigo transition-colors"
+          className="font-display text-xl font-semibold hover:text-indigo transition-colors text-ink"
         >
           ← PaperQA
         </Link>
+        <ThemeToggle />
       </header>
 
-      <main className="flex-1 max-w-3xl w-full mx-auto px-6 py-8 flex flex-col">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-6 py-8 flex flex-col">
         {loading ? (
           <p className="text-sm text-pencil font-mono">loading...</p>
         ) : (
@@ -87,7 +88,7 @@ export default function PaperChat() {
               </div>
             )}
 
-            <div className="flex-1 border border-pencil-light rounded-sm bg-white/40 min-h-[60vh]">
+            <div className="flex-1 border border-pencil-light rounded-md bg-paper-dim/40 backdrop-blur-sm min-h-[65vh] shadow-sm overflow-hidden flex flex-col">
               <ChatWindow paperId={paperId} disabled={!isReady} />
             </div>
           </>

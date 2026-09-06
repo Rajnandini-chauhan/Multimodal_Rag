@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     nvidia_api_key: str = ""
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
 
-    llm_model: str = "meta/llama-3.1-70b-instruct"
+    llm_model: str = "meta/llama-3.2-11b-vision-instruct"
     vision_model: str = "meta/llama-3.2-11b-vision-instruct"
     # NV-EmbedQA-E5-v5 is NVIDIA's free retrieval-optimized asymmetric embedding
     # model (passage vs query) currently available on NIM. Replaces the older

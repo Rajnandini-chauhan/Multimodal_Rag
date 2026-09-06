@@ -1,30 +1,61 @@
 @import "tailwindcss";
 
 @theme {
-  --color-paper: #f7f5ef;
-  --color-paper-dim: #efece2;
-  --color-ink: #1b1f2a;
-  --color-ink-soft: #3a3f4d;
-  --color-highlight: #f2c94c;
-  --color-highlight-soft: #fbe8ab;
-  --color-indigo: #3b4c9c;
-  --color-indigo-dim: #2e3c7a;
-  --color-pencil: #8b8578;
-  --color-pencil-light: #d8d3c4;
-  --color-danger: #b5473a;
+  --color-paper: var(--color-paper);
+  --color-paper-dim: var(--color-paper-dim);
+  --color-ink: var(--color-ink);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-highlight: var(--color-highlight);
+  --color-highlight-soft: var(--color-highlight-soft);
+  --color-indigo: var(--color-indigo);
+  --color-indigo-dim: var(--color-indigo-dim);
+  --color-pencil: var(--color-pencil);
+  --color-pencil-light: var(--color-pencil-light);
+  --color-danger: var(--color-danger);
 
   --font-display: "Source Serif 4", serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
+:root {
+  --color-paper: #f8fafc;
+  --color-paper-dim: #f1f5f9;
+  --color-ink: #0f172a;
+  --color-ink-soft: #334155;
+  --color-highlight: #f59e0b;
+  --color-highlight-soft: #fef3c7;
+  --color-indigo: #4f46e5;
+  --color-indigo-dim: #4338ca;
+  --color-pencil: #64748b;
+  --color-pencil-light: #e2e8f0;
+  --color-danger: #dc2626;
+  --color-card-bg: rgba(255, 255, 255, 0.85);
+}
+
+.dark {
+  --color-paper: #090d16;
+  --color-paper-dim: #0f172a;
+  --color-ink: #f8fafc;
+  --color-ink-soft: #cbd5e1;
+  --color-highlight: #f59e0b;
+  --color-highlight-soft: #451a03;
+  --color-indigo: #6366f1;
+  --color-indigo-dim: #4f46e5;
+  --color-pencil: #94a3b8;
+  --color-pencil-light: #1e293b;
+  --color-danger: #ef4444;
+  --color-card-bg: rgba(15, 23, 42, 0.75);
+}
+
 body {
   background-color: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* Margin-tab citation chip: a torn-paper flag look, used for page citations */
+/* Margin-tab citation chip */
 .citation-tab {
   position: relative;
   display: inline-flex;
@@ -38,5 +69,5 @@ body {
   font-weight: 500;
   border-radius: 0 3px 3px 0;
   border-left: 3px solid var(--color-highlight);
-  box-shadow: 1px 1px 2px rgba(27, 31, 42, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }

@@ -15,7 +15,7 @@ from app.schemas.qa import AskRequest, AskResponse
 from app.services.qa import generate_answer, retrieve_relevant_content
 from app.services.tasks import run_ingestion
 from app.storage.file_storage import InvalidPDFError, save_pdf, validate_pdf
-
+from openai import APIError
 router = APIRouter(prefix="/api/papers", tags=["papers"])
 
 
@@ -183,6 +183,8 @@ def get_ingestion_status(
     return IngestionJobOut.model_validate(job)
 
 
+from openai import APIError
+
 @router.post("/{paper_id}/ask", response_model=AskResponse)
 def ask_paper(
     paper_id: uuid.UUID,
@@ -199,8 +201,14 @@ def ask_paper(
             detail="This paper has not finished indexing yet",
         )
 
-    items = retrieve_relevant_content(str(paper.id), payload.question)
-    result = generate_answer(payload.question, items)
+    try:
+        items = retrieve_relevant_content(str(paper.id), payload.question)
+        result = generate_answer(payload.question, items)
+    except APIError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"LLM Provider Error: {exc.message}",
+        )
 
     return AskResponse(
         answer=result.answer,
