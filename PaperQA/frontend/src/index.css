@@ -1,24 +1,6 @@
 @import "tailwindcss";
 
 @theme {
-  --color-paper: var(--color-paper);
-  --color-paper-dim: var(--color-paper-dim);
-  --color-ink: var(--color-ink);
-  --color-ink-soft: var(--color-ink-soft);
-  --color-highlight: var(--color-highlight);
-  --color-highlight-soft: var(--color-highlight-soft);
-  --color-indigo: var(--color-indigo);
-  --color-indigo-dim: var(--color-indigo-dim);
-  --color-pencil: var(--color-pencil);
-  --color-pencil-light: var(--color-pencil-light);
-  --color-danger: var(--color-danger);
-
-  --font-display: "Source Serif 4", serif;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
-}
-
-:root {
   --color-paper: #f8fafc;
   --color-paper-dim: #f1f5f9;
   --color-ink: #0f172a;
@@ -30,29 +12,58 @@
   --color-pencil: #64748b;
   --color-pencil-light: #e2e8f0;
   --color-danger: #dc2626;
-  --color-card-bg: rgba(255, 255, 255, 0.85);
-}
 
-.dark {
-  --color-paper: #090d16;
-  --color-paper-dim: #0f172a;
-  --color-ink: #f8fafc;
-  --color-ink-soft: #cbd5e1;
-  --color-highlight: #f59e0b;
-  --color-highlight-soft: #451a03;
-  --color-indigo: #6366f1;
-  --color-indigo-dim: #4f46e5;
-  --color-pencil: #94a3b8;
-  --color-pencil-light: #1e293b;
-  --color-danger: #ef4444;
-  --color-card-bg: rgba(15, 23, 42, 0.75);
+  --font-display: "Source Serif 4", serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
 body {
-  background-color: var(--color-paper);
-  color: var(--color-ink);
+  background-color: #f8fafc;
+  color: #0f172a;
   font-family: var(--font-sans);
-  transition: background-color 0.25s ease, color 0.25s ease;
+  min-height: 100vh;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Dark mode overrides for Tailwind v4 */
+.dark body,
+html.dark body {
+  background-color: #090d16;
+  color: #f8fafc;
+}
+
+.dark header {
+  background-color: rgba(15, 23, 42, 0.8) !important;
+  border-color: #1e293b !important;
+}
+
+.dark .bg-paper {
+  background-color: #090d16 !important;
+}
+
+.dark .bg-paper-dim,
+.dark .bg-paper-dim\/40 {
+  background-color: #0f172a !important;
+}
+
+.dark .text-ink {
+  color: #f8fafc !important;
+}
+
+.dark .text-pencil {
+  color: #94a3b8 !important;
+}
+
+.dark .border-pencil-light {
+  border-color: #1e293b !important;
+}
+
+.dark .bg-white,
+.dark .bg-white\/40,
+.dark .bg-white\/60 {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
 }
 
 /* Margin-tab citation chip */
@@ -62,12 +73,17 @@ body {
   align-items: center;
   gap: 0.25rem;
   padding: 0.15rem 0.55rem 0.15rem 0.45rem;
-  background-color: var(--color-highlight-soft);
-  color: var(--color-ink);
+  background-color: #fef3c7;
+  color: #0f172a;
   font-family: var(--font-mono);
   font-size: 0.7rem;
   font-weight: 500;
   border-radius: 0 3px 3px 0;
-  border-left: 3px solid var(--color-highlight);
+  border-left: 3px solid #f59e0b;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.dark .citation-tab {
+  background-color: #451a03;
+  color: #fef3c7;
 }

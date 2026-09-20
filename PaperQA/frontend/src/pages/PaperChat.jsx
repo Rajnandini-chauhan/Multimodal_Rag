@@ -25,9 +25,11 @@ export default function PaperChat() {
     try {
       const res = await paperApi.getStatus(paperId);
       setJob(res.data);
-      if (res.data.status === "completed" || res.data.status === "failed") {
-        clearInterval(intervalRef.current);
+      if (res.data && (res.data.status === "completed" || res.data.status === "failed")) {
+        if (intervalRef.current) clearInterval(intervalRef.current);
       }
+    } catch (err) {
+      console.error("Error fetching status:", err);
     } finally {
       setLoading(false);
     }
@@ -63,7 +65,7 @@ export default function PaperChat() {
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-6 py-8 flex flex-col">
         {loading ? (
-          <p className="text-sm text-pencil font-mono">loading...</p>
+          <p className="text-sm text-pencil font-mono">loading paper status...</p>
         ) : (
           <>
             {!isReady && (

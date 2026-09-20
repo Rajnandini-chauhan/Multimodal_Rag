@@ -27,7 +27,8 @@ SYSTEM_PROMPT = (
     "1. Always use tools to ground your answers in the paper's actual content.\n"
     "2. If asked about figures or tables, use get_figure or get_table to verify details.\n"
     "3. If asked to plot, visualize, or compare data from a table, use create_chart.\n"
-    "4. Be objective, precise, and clear."
+    "4. IMPORTANT: Always provide a full, clear, detailed natural language explanation of your findings. "
+    "Do not stop with a generic one-line response."
 )
 
 
@@ -35,9 +36,9 @@ def run_paper_agent(
     session_id: uuid.UUID,
     user_message_text: str,
     db: Session,
-    max_tool_loops: int = 3,
+    max_tool_loops: int = 4,
 ) -> ChatMessage:
-    """Run multi-turn paper agent with tool execution loop."""
+    """Run multi-turn paper agent with tool execution loop and response synthesis."""
     session = db.get(ChatSession, session_id)
     if session is None:
         raise ValueError(f"ChatSession {session_id} not found.")
@@ -74,18 +75,20 @@ def run_paper_agent(
         "visualization_spec": None,
     }
 
+    final_text = ""
+    had_tool_calls = False
+
     # 3. Tool execution loop
     for loop in range(max_tool_loops):
         try:
             response = client.chat.completions.create(
                 model=settings.llm_model,
                 messages=api_messages,
-                tools=TOOL_DEFINITIONS,
-                tool_choice="auto",
+                tools=TOOL_DEFINITIONS if loop < max_tool_loops - 1 else None,
+                tool_choice="auto" if loop < max_tool_loops - 1 else "none",
             )
         except Exception as exc:
-            logger.error("LLM call failed in agent loop: %s", exc)
-            # Fallback to direct prompt if tools API isn't supported or errors out
+            logger.error("LLM tool call failed: %s", exc)
             response = client.chat.completions.create(
                 model=settings.llm_model,
                 messages=api_messages,
@@ -96,8 +99,8 @@ def run_paper_agent(
         msg = response.choices[0].message
 
         # If LLM returned tool calls
-        if hasattr(msg, "tool_calls") and msg.tool_calls:
-            # Append assistant message with tool calls to history
+        if hasattr(msg, "tool_calls") and msg.tool_calls and loop < max_tool_loops - 1:
+            had_tool_calls = True
             api_messages.append(
                 {
                     "role": "assistant",
@@ -116,7 +119,6 @@ def run_paper_agent(
                 }
             )
 
-            # Execute tool calls
             for tc in msg.tool_calls:
                 fn_name = tc.function.name
                 try:
@@ -137,10 +139,27 @@ def run_paper_agent(
                 )
         else:
             final_text = msg.content or ""
-            break
-    else:
-        # Reached max loop iterations
-        final_text = "I completed my analysis of the document."
+            if final_text.strip():
+                break
+
+    # If tools were executed but LLM didn't write a complete answer or used default text
+    if had_tool_calls or not final_text.strip() or final_text.strip() == "I completed my analysis of the document.":
+        try:
+            api_messages.append({
+                "role": "user",
+                "content": "Please synthesize a detailed and complete natural language response explaining the findings from the tools above."
+            })
+            synthesis_res = client.chat.completions.create(
+                model=settings.llm_model,
+                messages=api_messages,
+            )
+            syn_text = synthesis_res.choices[0].message.content or ""
+            if syn_text.strip():
+                final_text = syn_text
+        except Exception as e:
+            logger.error("Synthesis pass failed: %s", e)
+            if not final_text.strip():
+                final_text = "I have analyzed the document using the retrieved tools."
 
     # 4. Save assistant response to DB
     sources_list = sorted(list(context_acc["sources"])) if context_acc["sources"] else None

@@ -1,16 +1,29 @@
 import json
 import logging
 import uuid
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.models.content_block import ContentBlock, ContentType
+from app.services.indexing import (
+    embed_texts,
+    get_chroma_client,
+    get_multimodal_collection_name,
+)
 from app.services.qa import retrieve_relevant_content
 from app.services.visualization.plotly_builder import build_plotly_spec_from_table
+from app.services.vlm import describe_figure, describe_table
 
 logger = logging.getLogger(__name__)
 
+EXT_TO_MIME = {
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "webp": "image/webp",
+}
 
 TOOL_DEFINITIONS = [
     {
@@ -57,7 +70,7 @@ TOOL_DEFINITIONS = [
                 "properties": {
                     "figure_number": {
                         "type": "integer",
-                        "description": "Figure number (e.g. 1 for Figure 1).",
+                        "description": "Figure number (e.g. 1 for Figure 1, 4 for Figure 4).",
                     }
                 },
                 "required": ["figure_number"],
@@ -130,7 +143,7 @@ def execute_tool_call(
     db: Session,
     context_accumulator: dict[str, Any],
 ) -> str:
-    """Execute an agent tool call and update context accumulator safely."""
+    """Execute an agent tool call with VLM visual analysis support."""
     if tool_name == "search_paper":
         query = arguments.get("query", "")
         items = retrieve_relevant_content(paper_id, query)
@@ -197,8 +210,33 @@ def execute_tool_call(
 
         context_accumulator["sources"].add(target.page_number)
         caption = target.extra_data.get("caption", target.content) if target.extra_data else target.content
-        description = target.extra_data.get("vlm_description", "No visual description available.") if target.extra_data else "N/A"
-        return f"[Figure {fig_num} on Page {target.page_number}]\nCaption: {caption}\nDescription: {description}"
+
+        # Key lookup fix: multimodal_indexing saves key as "description"
+        description = (
+            (target.extra_data or {}).get("description")
+            or (target.extra_data or {}).get("vlm_description")
+        )
+
+        # On-demand VLM visual analysis if description is missing but image exists on disk
+        if not description:
+            storage_path = (target.extra_data or {}).get("storage_path")
+            if storage_path and Path(storage_path).exists():
+                ext = Path(storage_path).suffix.lstrip(".").lower()
+                mime_type = EXT_TO_MIME.get(ext, "image/png")
+                try:
+                    image_bytes = Path(storage_path).read_bytes()
+                    description = describe_figure(image_bytes, mime_type)
+                    if description:
+                        target.extra_data = {**(target.extra_data or {}), "description": description}
+                        db.add(target)
+                        db.commit()
+                except Exception as exc:
+                    logger.warning("On-demand VLM describe_figure failed: %s", exc)
+
+        if not description:
+            description = "Visual elements present in document figure."
+
+        return f"[Figure {fig_num} on Page {target.page_number}]\nCaption: {caption}\nVisual VLM Analysis: {description}"
 
     elif tool_name == "get_table":
         try:
@@ -228,8 +266,24 @@ def execute_tool_call(
 
         context_accumulator["sources"].add(target.page_number)
         caption = target.extra_data.get("caption", "Table") if target.extra_data else "Table"
-        summary = target.extra_data.get("vlm_summary", "") if target.extra_data else ""
-        return f"[Table {tbl_num} on Page {target.page_number}]\nCaption: {caption}\nContent: {target.content}\nSummary: {summary}"
+        summary = (
+            (target.extra_data or {}).get("description")
+            or (target.extra_data or {}).get("summary")
+            or (target.extra_data or {}).get("vlm_summary", "")
+        )
+
+        if not summary and target.content:
+            try:
+                rows = json.loads(target.content)
+                summary = describe_table(rows)
+                if summary:
+                    target.extra_data = {**(target.extra_data or {}), "description": summary}
+                    db.add(target)
+                    db.commit()
+            except Exception:
+                pass
+
+        return f"[Table {tbl_num} on Page {target.page_number}]\nCaption: {caption}\nContent Rows: {target.content}\nSummary: {summary}"
 
     elif tool_name == "explain_equation":
         eq_id = str(arguments.get("equation_identifier", "1"))
