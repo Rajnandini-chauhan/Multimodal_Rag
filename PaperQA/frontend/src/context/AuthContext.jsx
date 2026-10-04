@@ -23,8 +23,6 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  
-
   async function login(email, password) {
     const res = await authApi.login(email, password);
     localStorage.setItem("paperqa_token", res.data.access_token);
@@ -39,13 +37,22 @@ export function AuthProvider({ children }) {
     setUser(me.data);
   }
 
+  async function googleLogin(credential) {
+    const res = await authApi.googleLogin(credential);
+    localStorage.setItem("paperqa_token", res.data.access_token);
+    const me = await authApi.me();
+    setUser(me.data);
+  }
+
   function logout() {
     localStorage.removeItem("paperqa_token");
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, register, googleLogin, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

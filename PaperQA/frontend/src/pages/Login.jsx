@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "../components/ThemeToggle";
+import GoogleSignIn from "../components/GoogleSignIn";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -42,50 +43,57 @@ export default function Login() {
           </p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="border border-pencil-light bg-paper-dim/40 backdrop-blur-md rounded-md p-6 space-y-4 shadow-sm"
-        >
+        <div className="border border-pencil-light bg-paper-dim/40 backdrop-blur-md rounded-md p-6 space-y-4 shadow-sm">
           {error && (
             <p className="text-sm text-danger border-l-2 border-danger pl-2">
               {error}
             </p>
           )}
 
-          <div>
-            <label className="block text-xs font-mono text-pencil mb-1">
-              email
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-pencil-light rounded-sm px-3 py-2 text-sm bg-paper text-ink focus:outline-none focus:ring-2 focus:ring-indigo"
-            />
+          <GoogleSignIn onError={setError} />
+
+          <div className="flex items-center my-3">
+            <div className="flex-1 border-t border-pencil-light"></div>
+            <span className="px-2 font-mono text-[10px] uppercase text-pencil">or</span>
+            <div className="flex-1 border-t border-pencil-light"></div>
           </div>
 
-          <div>
-            <label className="block text-xs font-mono text-pencil mb-1">
-              password
-            </label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-pencil-light rounded-sm px-3 py-2 text-sm bg-paper text-ink focus:outline-none focus:ring-2 focus:ring-indigo"
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-mono text-pencil mb-1">
+                email
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full border border-pencil-light rounded-sm px-3 py-2 text-sm bg-paper text-ink focus:outline-none focus:ring-2 focus:ring-indigo"
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-indigo hover:bg-indigo-dim text-white text-sm font-medium py-2 rounded-sm transition-colors disabled:opacity-50"
-          >
-            {submitting ? "Logging in..." : "Log in"}
-          </button>
-        </form>
+            <div>
+              <label className="block text-xs font-mono text-pencil mb-1">
+                password
+              </label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full border border-pencil-light rounded-sm px-3 py-2 text-sm bg-paper text-ink focus:outline-none focus:ring-2 focus:ring-indigo"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full bg-indigo hover:bg-indigo-dim text-white text-sm font-medium py-2 rounded-sm transition-colors disabled:opacity-50"
+            >
+              {submitting ? "Logging in..." : "Log in"}
+            </button>
+          </form>
+        </div>
 
         <p className="mt-4 text-center text-sm text-pencil">
           No account yet?{" "}

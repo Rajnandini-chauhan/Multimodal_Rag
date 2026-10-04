@@ -14,6 +14,10 @@ class UserLogin(BaseModel):
     password: str
 
 
+class GoogleAuthRequest(BaseModel):
+    credential: str = Field(min_length=1)
+
+
 class UserOut(BaseModel):
     id: uuid.UUID
     email: EmailStr
