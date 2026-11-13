@@ -1,0 +1,196 @@
+{
+  "timestamp": "2026-11-13T08:44:48.149210+00:00",
+  "paper_id": "ab0fc8ed-d6d8-4ccb-9dea-4bdb845160b4",
+  "summary": {
+    "total_test_cases": 5,
+    "mean_page_recall": 0.5333,
+    "mean_page_precision": 0.1472,
+    "mean_citation_f1": 0.2224,
+    "mean_figure_recall": 1.0,
+    "mean_table_recall": 0.8,
+    "mean_grounding_score": 0.7533,
+    "mean_latency_seconds": 13.8282
+  },
+  "detailed_results": [
+    {
+      "test_id": "tc-001",
+      "question": "What is the primary objective of this project or paper?",
+      "category": "overview",
+      "latency_seconds": 14.872,
+      "answer_preview": "Based on the excerpts, the project's primary objective is framed in Section 1.1 (Page 11): the internship focused on bui...",
+      "actual_pages": [
+        6,
+        11,
+        12,
+        19,
+        20,
+        30,
+        33
+      ],
+      "expected_pages": [
+        1,
+        6
+      ],
+      "actual_figures": [
+        4,
+        6
+      ],
+      "expected_figures": [],
+      "actual_tables": [],
+      "expected_tables": [],
+      "metrics": {
+        "page_recall": 0.5,
+        "page_precision": 0.1429,
+        "citation_f1": 0.2222,
+        "figure_recall": 1.0,
+        "table_recall": 1.0,
+        "grounding_score": 0.6
+      }
+    },
+    {
+      "test_id": "tc-002",
+      "question": "What does Figure 4 illustrate regarding system architecture or process flow?",
+      "category": "multimodal_figure",
+      "latency_seconds": 20.084,
+      "answer_preview": "The document's \"Figure 4\" refers to three related figures\u2014Figure 4.1, 4.2, and 4.3\u2014as listed on page 8\u2014each illustrating...",
+      "actual_pages": [
+        6,
+        8,
+        19,
+        20,
+        21
+      ],
+      "expected_pages": [
+        19,
+        30
+      ],
+      "actual_figures": [
+        4
+      ],
+      "expected_figures": [
+        4
+      ],
+      "actual_tables": [],
+      "expected_tables": [],
+      "metrics": {
+        "page_recall": 0.5,
+        "page_precision": 0.2,
+        "citation_f1": 0.2857,
+        "figure_recall": 1.0,
+        "table_recall": 1.0,
+        "grounding_score": 0.6667
+      }
+    },
+    {
+      "test_id": "tc-003",
+      "question": "Explain the methodology and key components used in the project.",
+      "category": "methodology",
+      "latency_seconds": 13.655,
+      "answer_preview": "Based on the provided excerpts, the project is an **AI-powered mental health assistant** completed remotely with CodeTec...",
+      "actual_pages": [
+        6,
+        12,
+        13,
+        14,
+        20,
+        21,
+        30
+      ],
+      "expected_pages": [
+        6,
+        7,
+        8
+      ],
+      "actual_figures": [
+        4,
+        6
+      ],
+      "expected_figures": [],
+      "actual_tables": [],
+      "expected_tables": [],
+      "metrics": {
+        "page_recall": 0.3333,
+        "page_precision": 0.1429,
+        "citation_f1": 0.2,
+        "figure_recall": 1.0,
+        "table_recall": 1.0,
+        "grounding_score": 1.0
+      }
+    },
+    {
+      "test_id": "tc-004",
+      "question": "What information or comparison is provided in Table 1?",
+      "category": "multimodal_table",
+      "latency_seconds": 7.136,
+      "answer_preview": "The excerpts provided do not contain any reference to \"Table 1.\" The first table explicitly mentioned is **Table 3.1**, ...",
+      "actual_pages": [
+        6,
+        8,
+        9,
+        11,
+        15,
+        19,
+        20,
+        21
+      ],
+      "expected_pages": [
+        15
+      ],
+      "actual_figures": [
+        4
+      ],
+      "expected_figures": [],
+      "actual_tables": [],
+      "expected_tables": [
+        1
+      ],
+      "metrics": {
+        "page_recall": 1.0,
+        "page_precision": 0.125,
+        "citation_f1": 0.2222,
+        "figure_recall": 1.0,
+        "table_recall": 0.0,
+        "grounding_score": 0.5
+      }
+    },
+    {
+      "test_id": "tc-005",
+      "question": "How does the crisis detection and emotion classification mechanism operate?",
+      "category": "feature_analysis",
+      "latency_seconds": 13.394,
+      "answer_preview": "The crisis detection and emotion classification mechanism operates as follows, based strictly on the provided excerpts:\n...",
+      "actual_pages": [
+        5,
+        12,
+        18,
+        19,
+        21,
+        22,
+        31,
+        33
+      ],
+      "expected_pages": [
+        8,
+        9,
+        19
+      ],
+      "actual_figures": [
+        4,
+        6
+      ],
+      "expected_figures": [
+        4
+      ],
+      "actual_tables": [],
+      "expected_tables": [],
+      "metrics": {
+        "page_recall": 0.3333,
+        "page_precision": 0.125,
+        "citation_f1": 0.1818,
+        "figure_recall": 1.0,
+        "table_recall": 1.0,
+        "grounding_score": 1.0
+      }
+    }
+  ]
+}
