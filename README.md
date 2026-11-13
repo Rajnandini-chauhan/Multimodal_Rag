@@ -662,7 +662,7 @@ The agent layer will be added only after deterministic RAG works reliably.
 - Multimodal reranking
 
 **Definition of done:** questions about figures and tables use the actual relevant visual evidence.
-
+ 
 ### Milestone 9 — Agent and visualization
 
 - Tool registry
