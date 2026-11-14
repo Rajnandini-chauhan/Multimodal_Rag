@@ -1,0 +1,153 @@
+name: PaperQA CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  backend-tests:
+    name: Backend Tests & Linting
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: paperqa
+          POSTGRES_PASSWORD: paperqa
+          POSTGRES_DB: paperqa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      APP_NAME: PaperQA
+      APP_ENV: testing
+      DEBUG: "true"
+      DATABASE_URL: postgresql+psycopg://paperqa:paperqa@localhost:5432/paperqa
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET_KEY: ci-test-secret-key-32-bytes-minimum-length
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      NVIDIA_API_KEY: mock-api-key-for-testing
+      NVIDIA_BASE_URL: https://integrate.api.nvidia.com/v1
+      LLM_MODEL: nvidia/nemotron-3.5-lightning-30b-a3b
+      VISION_MODEL: nvidia/nemotron-3.5-super-vl-120b-a12b
+      EMBEDDING_MODEL: nvidia/nemotron-3-embed-1b
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            **/requirements.txt
+
+      - name: Locate Backend Directory
+        id: locate
+        run: |
+          if [ -d "PaperQA/backend" ]; then
+            echo "backend_dir=PaperQA/backend" >> $GITHUB_OUTPUT
+            echo "root_dir=PaperQA" >> $GITHUB_OUTPUT
+          else
+            echo "backend_dir=backend" >> $GITHUB_OUTPUT
+            echo "root_dir=." >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ${{ steps.locate.outputs.backend_dir }}/requirements.txt
+          pip install pytest pytest-cov httpx
+
+      - name: Run Database Migrations
+        working-directory: ${{ steps.locate.outputs.backend_dir }}
+        run: |
+          python -m alembic upgrade head || true
+
+      - name: Run Pytest Suite
+        working-directory: ${{ steps.locate.outputs.backend_dir }}
+        run: |
+          pytest tests/ -v --disable-warnings
+
+  frontend-build:
+    name: Frontend Build & Typecheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Locate Frontend Directory
+        id: locate
+        run: |
+          if [ -d "PaperQA/frontend" ]; then
+            echo "frontend_dir=PaperQA/frontend" >> $GITHUB_OUTPUT
+          else
+            echo "frontend_dir=frontend" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install Frontend Dependencies
+        working-directory: ${{ steps.locate.outputs.frontend_dir }}
+        run: |
+          npm ci || npm install
+
+      - name: Build Frontend Application
+        working-directory: ${{ steps.locate.outputs.frontend_dir }}
+        env:
+          VITE_API_URL: http://localhost:8000
+          VITE_GOOGLE_CLIENT_ID: mock-client-id
+        run: |
+          npm run build
+
+  docker-compose-validate:
+    name: Docker Compose Config Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Locate Compose File
+        id: locate
+        run: |
+          if [ -f "PaperQA/docker-compose.yml" ]; then
+            echo "compose_file=PaperQA/docker-compose.yml" >> $GITHUB_OUTPUT
+          else
+            echo "compose_file=docker-compose.yml" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Dummy .env Files for Config Check
+        run: |
+          mkdir -p PaperQA/backend PaperQA/frontend backend frontend
+          touch PaperQA/backend/.env PaperQA/frontend/.env backend/.env frontend/.env 2>/dev/null || true
+
+      - name: Validate Docker Compose Configuration
+        run: |
+          docker compose -f ${{ steps.locate.outputs.compose_file }} config
