@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-13T08:44:48.149210+00:00",
+  "timestamp": "2026-11-14T06:14:05.487852+00:00",
   "paper_id": "ab0fc8ed-d6d8-4ccb-9dea-4bdb845160b4",
   "summary": {
     "total_test_cases": 5,
@@ -9,15 +9,15 @@
     "mean_figure_recall": 1.0,
     "mean_table_recall": 0.8,
     "mean_grounding_score": 0.7533,
-    "mean_latency_seconds": 13.8282
+    "mean_latency_seconds": 30.2982
   },
   "detailed_results": [
     {
       "test_id": "tc-001",
       "question": "What is the primary objective of this project or paper?",
       "category": "overview",
-      "latency_seconds": 14.872,
-      "answer_preview": "Based on the excerpts, the project's primary objective is framed in Section 1.1 (Page 11): the internship focused on bui...",
+      "latency_seconds": 33.61,
+      "answer_preview": "The primary objective of the project, as framed in the background and motivation (Section 1.1\u20131.2), is to develop a ment...",
       "actual_pages": [
         6,
         11,
@@ -51,8 +51,8 @@
       "test_id": "tc-002",
       "question": "What does Figure 4 illustrate regarding system architecture or process flow?",
       "category": "multimodal_figure",
-      "latency_seconds": 20.084,
-      "answer_preview": "The document's \"Figure 4\" refers to three related figures\u2014Figure 4.1, 4.2, and 4.3\u2014as listed on page 8\u2014each illustrating...",
+      "latency_seconds": 58.006,
+      "answer_preview": "Based on the provided excerpts, the document contains multiple figures with the identifier \"4,\" specifically **Figure 4....",
       "actual_pages": [
         6,
         8,
@@ -85,8 +85,8 @@
       "test_id": "tc-003",
       "question": "Explain the methodology and key components used in the project.",
       "category": "methodology",
-      "latency_seconds": 13.655,
-      "answer_preview": "Based on the provided excerpts, the project is an **AI-powered mental health assistant** completed remotely with CodeTec...",
+      "latency_seconds": 25.817,
+      "answer_preview": "Based on the provided excerpts, the project is an AI-powered mental health assistant designed for end-to-end student\u2011int...",
       "actual_pages": [
         6,
         12,
@@ -121,8 +121,8 @@
       "test_id": "tc-004",
       "question": "What information or comparison is provided in Table 1?",
       "category": "multimodal_table",
-      "latency_seconds": 7.136,
-      "answer_preview": "The excerpts provided do not contain any reference to \"Table 1.\" The first table explicitly mentioned is **Table 3.1**, ...",
+      "latency_seconds": 9.052,
+      "answer_preview": "The provided excerpts do not contain a Table 1. The document's List of Tables begins with **Table 3.1** (on page 5), and...",
       "actual_pages": [
         6,
         8,
@@ -157,8 +157,8 @@
       "test_id": "tc-005",
       "question": "How does the crisis detection and emotion classification mechanism operate?",
       "category": "feature_analysis",
-      "latency_seconds": 13.394,
-      "answer_preview": "The crisis detection and emotion classification mechanism operates as follows, based strictly on the provided excerpts:\n...",
+      "latency_seconds": 25.006,
+      "answer_preview": "**Crisis Detection** (Page 22): The system uses a single compiled regular expression built from a fixed list of crisis p...",
       "actual_pages": [
         5,
         12,

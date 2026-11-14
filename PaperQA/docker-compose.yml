@@ -76,7 +76,7 @@ services:
 
     command: >
       celery
-      -A app.core.celery_app
+      -A app.celery_app
       worker
       --loglevel=info
 
